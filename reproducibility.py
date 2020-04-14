@@ -2,7 +2,6 @@
 
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2020 Hadrien Chauvin
-
 """Assess the reproducibility of a build rule."""
 
 import sys
@@ -32,7 +31,11 @@ def digest_files(files):
         if os.path.islink(file):
             digests = {**digests, file: 'symlink=' + os.readlink(file)}
         elif os.path.isdir(file):
-            digests = {**digests, **digest_files([os.path.join(file, name) for name in os.listdir(file)])}
+            digests = {
+                **digests,
+                **digest_files(
+                    [os.path.join(file, name) for name in os.listdir(file)])
+            }
         else:
             digests = {**digests, file: 'sha256=' + _digest_file(file)}
     return digests
@@ -63,7 +66,8 @@ def _digest_file(file):
 
 def digest_archive(archive):
     """Digest each entry in an archive separately."""
-    if archive.endswith(".zip") or archive.endswith(".jar") or archive.endswith(".war"):
+    if archive.endswith(".zip") or archive.endswith(".jar") or archive.endswith(
+            ".war"):
         return _digest_zip_archive(archive)
     else:
         raise Exception(f"{archive} has an unsupported archive format")
@@ -73,9 +77,11 @@ def _digest_zip_archive(archive):
     digests = {}
     with zipfile.ZipFile(archive, 'r') as ar:
         infolist = ar.infolist()
-        digests[f'{archive}#namelist'] = _digest_json([info.filename for info in infolist])
+        digests[f'{archive}#namelist'] = _digest_json(
+            [info.filename for info in infolist])
         for info in ar.infolist():
-            digests[f'{archive}#{info.filename}#date_time'] = _digest_json(info.date_time)
+            digests[f'{archive}#{info.filename}#date_time'] = _digest_json(
+                info.date_time)
             with ar.open(info.filename, 'r') as f:
                 BUF_SIZE = 65536
                 m = hashlib.sha256()
@@ -145,10 +151,11 @@ def test_reproducibility(func, output_files, output_archives):
         A sorted list of all the files with digests that differ between
         the two invocations.
     """
+
     def digest_outputs():
         return ChainMap(
-          digest_files(output_files + output_archives),
-          *[digest_archive(ar) for ar in output_archives])
+            digest_files(output_files + output_archives),
+            *[digest_archive(ar) for ar in output_archives])
 
     func()
     digests1 = digest_outputs()
@@ -164,14 +171,14 @@ class CLI:
 
     def __init__(self):
         parser = argparse.ArgumentParser(
-            description='Make',
-            usage="make <command> [<args>]")
+            description='Make', usage="make <command> [<args>]")
         subcommands = [
             attr for attr in dir(self)
-            if not attr.startswith("_") and callable(getattr(self, attr))]
-        parser.add_argument('command',
-                            help='Subcommand to run: one of: ' + " ".join(
-                                subcommands))
+            if not attr.startswith("_") and callable(getattr(self, attr))
+        ]
+        parser.add_argument(
+            'command',
+            help='Subcommand to run: one of: ' + " ".join(subcommands))
         args = parser.parse_args(sys.argv[1:2])
         if not hasattr(self, args.command):
             print('Unrecognized command')
@@ -182,22 +189,28 @@ class CLI:
     def test(self):
         parser = argparse.ArgumentParser(
             description='Test reproducibility by running twice a command')
-        parser.add_argument('-f', '--file', action='append',
-                            help='file or directory produced by the command')
-        parser.add_argument('-ar', '--archive', action='append',
-                            help='archive produced by the command (all the ' +
-                            'files in the archive will be compared separately, ' +
-                            'in addition to a comparison for the archive itself)')
+        parser.add_argument(
+            '-f',
+            '--file',
+            action='append',
+            help='file or directory produced by the command')
+        parser.add_argument(
+            '-ar',
+            '--archive',
+            action='append',
+            help='archive produced by the command (all the ' +
+            'files in the archive will be compared separately, ' +
+            'in addition to a comparison for the archive itself)')
         parser.add_argument('command', help='the command to run')
-        parser.add_argument('args', nargs=argparse.REMAINDER,
-                            help='arguments to the command')
+        parser.add_argument(
+            'args', nargs=argparse.REMAINDER, help='arguments to the command')
         args = parser.parse_args(sys.argv[2:])
 
         def func():
             subprocess.run([args.command] + args.args, check=True)
 
         differences = test_reproducibility(
-            func, 
+            func,
             output_files=args.file or [],
             output_archives=args.archive or [])
         if len(differences) == 0:
