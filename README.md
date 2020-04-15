@@ -1,1 +1,1 @@
-# reproducibility: Assess the reproducibility of a build rule.
+# reproducibility: Assess the reproducibility of a build rule
